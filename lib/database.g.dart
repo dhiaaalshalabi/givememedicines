@@ -87,6 +87,10 @@ class _$AppDatabase extends AppDatabase {
             'CREATE TABLE IF NOT EXISTS `Doctor` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `syncedId` INTEGER NOT NULL, `firstName` TEXT NOT NULL, `lastName` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, `nameOfTheClinic` TEXT NOT NULL)');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `Medicine` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `syncedId` INTEGER NOT NULL, `scientificName` TEXT NOT NULL, `tradeName` TEXT NOT NULL, `producingCompany` TEXT NOT NULL, `price` TEXT NOT NULL)');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `Sales` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `salesRepresentativeId` INTEGER NOT NULL, `doctorId` INTEGER NOT NULL, `remark` TEXT NOT NULL, `date` TEXT NOT NULL, `tagged` INTEGER NOT NULL, FOREIGN KEY (`doctorId`) REFERENCES `Doctor` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION)');
+        await database.execute(
+            'CREATE TABLE IF NOT EXISTS `SalesMedicine` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `salesId` INTEGER NOT NULL, `medicineId` INTEGER NOT NULL, `quantityType` TEXT NOT NULL, `quantity` INTEGER NOT NULL, FOREIGN KEY (`salesId`) REFERENCES `Sales` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION, FOREIGN KEY (`medicineId`) REFERENCES `Medicine` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION)');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -140,11 +144,6 @@ class _$DoctorDao extends DoctorDao {
             row['address'] as String,
             row['phone'] as String,
             row['nameOfTheClinic'] as String));
-  }
-
-  @override
-  Future<List<dynamic>?> findAllDoctorIds() async {
-    await _queryAdapter.queryNoReturn('SELECT id FROM Doctor');
   }
 
   @override

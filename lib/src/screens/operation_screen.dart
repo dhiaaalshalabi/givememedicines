@@ -4,33 +4,45 @@ import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:givememedicineapp/data/medicine_api.dart';
+import 'package:givememedicineapp/database.dart';
 import 'package:givememedicineapp/entity/medicine.dart';
+import 'package:givememedicineapp/src/screens/sales_screen.dart';
 import 'package:givememedicineapp/utils.dart';
 
-import '../database.dart';
-
-class OperationApp extends StatelessWidget {
-  const OperationApp({Key? key}) : super(key: key);
+class RepresentativeScreen extends StatelessWidget {
+  const RepresentativeScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Operation'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SalesScreen()),
+              );
+            },
+            icon: const Icon(Icons.add),
+          ),
+        ],
       ),
-      body: const OperationPage(),
+      body: const RepresentativeScreenPage(),
     );
   }
 }
 
-class OperationPage extends StatefulWidget {
-  const OperationPage({Key? key}) : super(key: key);
+class RepresentativeScreenPage extends StatefulWidget {
+  const RepresentativeScreenPage({Key? key}) : super(key: key);
 
   @override
-  _OperationPage createState() => _OperationPage();
+  _RepresentativeScreenPageState createState() =>
+      _RepresentativeScreenPageState();
 }
 
-class _OperationPage extends State<OperationPage> {
+class _RepresentativeScreenPageState extends State<RepresentativeScreenPage> {
   late AppDatabase database;
   List<Medicine> medicines = [];
   late StreamSubscription subscription;
@@ -66,14 +78,13 @@ class _OperationPage extends State<OperationPage> {
       database = value;
       setState(() {
         var connectivityResult = Connectivity().checkConnectivity();
-        connectivityResult.then((value) =>
-        {
-          if (value == ConnectivityResult.mobile ||
-              value == ConnectivityResult.wifi)
-            {
-              getMedicinesFromApi(),
-            }
-        });
+        connectivityResult.then((value) => {
+              if (value == ConnectivityResult.mobile ||
+                  value == ConnectivityResult.wifi)
+                {
+                  getMedicinesFromApi(),
+                }
+            });
       });
     });
     subscription =

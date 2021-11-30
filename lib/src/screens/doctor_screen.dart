@@ -8,8 +8,8 @@ import 'package:givememedicineapp/database.dart';
 import 'package:givememedicineapp/entity/doctor.dart';
 import 'package:givememedicineapp/utils.dart';
 
-class DoctorApp extends StatelessWidget {
-  const DoctorApp({Key? key}) : super(key: key);
+class DoctorScreen extends StatelessWidget {
+  const DoctorScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -17,20 +17,20 @@ class DoctorApp extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Doctor List'),
       ),
-      body: const DoctorPage(),
+      body: const DoctorScreenPage(),
     );
   }
 }
 
-class DoctorPage extends StatefulWidget {
-  const DoctorPage({Key? key}) : super(key: key);
+class DoctorScreenPage extends StatefulWidget {
+  const DoctorScreenPage({Key? key}) : super(key: key);
 
   @override
-  _DoctorPageState createState() => _DoctorPageState();
+  _DoctorScreenPageState createState() => _DoctorScreenPageState();
 }
 
-class _DoctorPageState extends State<DoctorPage> {
-  late AppDatabase database;
+class _DoctorScreenPageState extends State<DoctorScreenPage> {
+  AppDatabase? database;
   List<Doctor> doctors = [];
   late StreamSubscription subscription;
 
@@ -41,8 +41,8 @@ class _DoctorPageState extends State<DoctorPage> {
         .databaseBuilder('database.db')
         .build()
         .then((value) async {
-      database = value;
       setState(() {
+        database = value;
         var connectivityResult = Connectivity().checkConnectivity();
         connectivityResult.then((value) => {
               if (value == ConnectivityResult.mobile ||
@@ -123,7 +123,35 @@ class _DoctorPageState extends State<DoctorPage> {
   }
 
   Future<List<Doctor>> findAllDoctor() async {
-    return await database.doctorDao.findAllDoctor();
+    return await database!.doctorDao.findAllDoctor();
+  }
+
+  Future<void> _showMyDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('AlertDialog Title'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: const <Widget>[
+                Text('This is a demo alert dialog.'),
+                Text('Would you like to approve of this message?'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Approve'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> getDoctorsFromApi() async {
@@ -131,11 +159,15 @@ class _DoctorPageState extends State<DoctorPage> {
       return list.map((e) => e.syncedId).toList();
     });
     doctors = await DoctorApi.getDoctors(ids).then((response) {
-      Iterable list = json.decode(response.body);
-      return list.map((model) => Doctor.fromJson(model)).toList();
+      if (response.statusCode == 200) {
+        Iterable list = json.decode(response.body);
+        return list.map((model) => Doctor.fromJson(model)).toList();
+      } else {
+        _showMyDialog();
+      }
     });
     setState(() {
-      insertDoctors(database);
+      insertDoctors(database!);
     });
   }
 
