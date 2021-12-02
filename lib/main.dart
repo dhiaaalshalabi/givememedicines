@@ -1,15 +1,31 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:givememedicineapp/src/screens/home_screen.dart';
 import 'package:givememedicineapp/utils.dart';
 import 'package:overlay_support/overlay_support.dart';
+import 'package:rflutter_alert/rflutter_alert.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'data/representative_api.dart';
 
-main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MainApp());
+  final prefs = await SharedPreferences.getInstance();
+  bool isLoggedIn = (prefs.getInt('representativeId') == null) ? false : true;
+
+  runApp(
+    OverlaySupport(
+      child: MaterialApp(
+        home: isLoggedIn ? const HomeScreen() : const MainApp(),
+        routes: {
+          '/home': (context) => const HomeScreen(),
+        },
+      ),
+    ),
+  );
 }
 
 class MainApp extends StatelessWidget {
@@ -17,26 +33,11 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: Init.instance.initialize(),
-      builder: (context, AsyncSnapshot snapshot) {
-        // Show splash screen while waiting for app resources to load:
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const MaterialApp(home: Splash());
-        } else {
-          // Loading is done, return the app:
-          return OverlaySupport(
-            child: MaterialApp(
-              home: Scaffold(
-                appBar: AppBar(
-                  title: const Text("Give Me Medicine"),
-                ),
-                body: const MainPage(),
-              ),
-            ),
-          );
-        }
-      },
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Login"),
+      ),
+      body: const MainPage(),
     );
   }
 }
@@ -100,18 +101,44 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  _incrementCounter() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    int counter = (prefs.getInt('counter') ?? 0) + 1;
-    print('Pressed $counter times.');
-    await prefs.setInt('counter', counter);
+  _saveRepresentative(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('representativeId', id);
+    int check = prefs.getInt('representativeId') ?? 0;
+    if (check != 0) {
+      Navigator.pushReplacementNamed(context, '/home');
+    }
   }
 
   Future<void> getRepresentativeFromApi() async {
-    print("Phone ${_phone.text}");
-    print("Pass ${_pass.text}");
-    await RepresentativeApi.getRepresentative().then((response) {
-      print("rrrrrrrrrrrrrrrrrrr ${response}");
+    await RepresentativeApi.getRepresentative(ph: _phone.text, pas: _pass.text)
+        .then((response) {
+      if (response.statusCode == 200) {
+        Iterable list = json.decode(response.body);
+        if (list.isNotEmpty) {
+          for (var element in list) {
+            _saveRepresentative(element['id']);
+          }
+        } else {
+          showRAlertDialog(
+              context,
+              'Error!!',
+              'Make sure from your account credentials then try again later.',
+              AlertType.error);
+        }
+      } else {
+        showRAlertDialog(
+            context,
+            'Error!!',
+            'Make sure that your connected network has internet access.',
+            AlertType.error);
+      }
+    }).timeout(const Duration(seconds: 5), onTimeout: () {
+      showRAlertDialog(
+          context,
+          'Timeout!!',
+          'Make sure that your connected network has internet access.',
+          AlertType.error);
     });
   }
 
@@ -148,7 +175,25 @@ class _MainPageState extends State<MainPage> {
                   ),
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      getRepresentativeFromApi();
+                      var connectivityResult =
+                          Connectivity().checkConnectivity();
+                      connectivityResult.then(
+                        (value) => {
+                          if (value == ConnectivityResult.mobile ||
+                              value == ConnectivityResult.wifi)
+                            {
+                              getRepresentativeFromApi(),
+                            }
+                          else
+                            {
+                              showRAlertDialog(
+                                  context,
+                                  'Error!',
+                                  'Make sure you are connected to network and have access to internet.',
+                                  AlertType.error),
+                            }
+                        },
+                      );
                     }
                   },
                 ),
@@ -174,32 +219,5 @@ class _MainPageState extends State<MainPage> {
     } else if (result == ConnectivityResult.none) {
       showConnectivitySnackBar(context, result);
     }
-  }
-}
-
-class Splash extends StatelessWidget {
-  const Splash({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    bool lightMode =
-        MediaQuery.of(context).platformBrightness == Brightness.light;
-    return Scaffold(
-      backgroundColor:
-          lightMode ? const Color(0xffe1f5fe) : const Color(0xff042a49),
-      body: Center(
-          child: lightMode
-              ? Image.asset('images/app.png')
-              : Image.asset('images/app.png')),
-    );
-  }
-}
-
-class Init {
-  Init._();
-  static final instance = Init._();
-
-  Future initialize() async {
-    await Future.delayed(const Duration(seconds: 3));
   }
 }

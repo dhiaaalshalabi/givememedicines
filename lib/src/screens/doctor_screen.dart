@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:givememedicineapp/data/doctor_api.dart';
 import 'package:givememedicineapp/database.dart';
 import 'package:givememedicineapp/entity/doctor.dart';
+import 'package:givememedicineapp/src/screens/add_doctor.dart';
 import 'package:givememedicineapp/utils.dart';
+import 'package:rflutter_alert/rflutter_alert.dart';
 
 class DoctorScreen extends StatelessWidget {
   const DoctorScreen({Key? key}) : super(key: key);
@@ -16,6 +18,23 @@ class DoctorScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Doctor List'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddDoctorScreen(),
+                ),
+              ).then(
+                (value) => {
+                  // Code goes here
+                },
+              );
+            },
+            icon: const Icon(Icons.add),
+          ),
+        ],
       ),
       body: const DoctorScreenPage(),
     );
@@ -30,29 +49,31 @@ class DoctorScreenPage extends StatefulWidget {
 }
 
 class _DoctorScreenPageState extends State<DoctorScreenPage> {
-  AppDatabase? database;
-  List<Doctor> doctors = [];
+  late AppDatabase database;
+  List<Doctor>? doctors = [];
   late StreamSubscription subscription;
 
   @override
   void initState() {
     super.initState();
-    $FloorAppDatabase
-        .databaseBuilder('database.db')
-        .build()
-        .then((value) async {
-      setState(() {
+    $FloorAppDatabase.databaseBuilder('database.db').build().then(
+      (value) async {
         database = value;
-        var connectivityResult = Connectivity().checkConnectivity();
-        connectivityResult.then((value) => {
+        setState(() {
+          syncDoctorWithApi();
+          var connectivityResult = Connectivity().checkConnectivity();
+          connectivityResult.then(
+            (value) => {
               if (value == ConnectivityResult.mobile ||
                   value == ConnectivityResult.wifi)
                 {
-                  getDoctorsFromApi(),
+                  // getDoctorsFromApi(),
                 }
-            });
-      });
-    });
+            },
+          );
+        });
+      },
+    );
     subscription =
         Connectivity().onConnectivityChanged.listen(checkConnectivityState);
   }
@@ -95,7 +116,7 @@ class _DoctorScreenPageState extends State<DoctorScreenPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                                "${snapshot.data![index].firstName} ${snapshot.data![index].lastName}"),
+                                "${snapshot.data![index].firstName} ${snapshot.data![index].lastName} - ${snapshot.data![index].syncedId}"),
                             Text(
                               snapshot.data![index].phone,
                               style: const TextStyle(
@@ -106,7 +127,7 @@ class _DoctorScreenPageState extends State<DoctorScreenPage> {
                           ],
                         ),
                         subtitle: Text(
-                            "${snapshot.data![index].address} ${snapshot.data![index].nameOfTheClinic}"),
+                            "${snapshot.data![index].address} - ${snapshot.data![index].clinicName}"),
                       ),
                     );
                   },
@@ -119,62 +140,102 @@ class _DoctorScreenPageState extends State<DoctorScreenPage> {
   }
 
   Future<List<int>> insertDoctors(AppDatabase db) async {
-    return await db.doctorDao.insertDoctors(doctors);
+    return await db.doctorDao.insertDoctors(doctors!);
   }
 
   Future<List<Doctor>> findAllDoctor() async {
-    return await database!.doctorDao.findAllDoctor();
+    return await database.doctorDao.findAllDoctor();
   }
 
-  Future<void> _showMyDialog() async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false, // user must tap button!
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('AlertDialog Title'),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: const <Widget>[
-                Text('This is a demo alert dialog.'),
-                Text('Would you like to approve of this message?'),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Approve'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+  Future<List<Doctor>> findDoctorByTagged(bool tagged) async {
+    return await database.doctorDao.findDoctorByTagged(tagged);
+  }
+
+  Future<int> updateDoctor(AppDatabase db, Doctor doctor) async {
+    return await db.doctorDao.updateDoctor(doctor);
   }
 
   Future<void> getDoctorsFromApi() async {
-    List<int> ids = await findAllDoctor().then((list) {
-      return list.map((e) => e.syncedId).toList();
-    });
-    doctors = await DoctorApi.getDoctors(ids).then((response) {
-      if (response.statusCode == 200) {
-        Iterable list = json.decode(response.body);
-        return list.map((model) => Doctor.fromJson(model)).toList();
-      } else {
-        _showMyDialog();
-      }
-    });
+    List<int> ids = await findDoctorByTagged(true).then(
+      (list) {
+        return list.map((e) => e.syncedId).toList();
+      },
+    );
+    doctors = await DoctorApi.getDoctors(ids).then(
+      (response) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          Iterable list = json.decode(response.body);
+          return list.map((model) => Doctor.fromJson(model)).toList();
+        } else {
+          showRAlertDialog(
+              context,
+              'Error!!',
+              'Make sure that your connected network has an internet access.',
+              AlertType.error);
+        }
+      },
+    ).timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        showRAlertDialog(
+            context,
+            'Timeout!!',
+            'Make sure that your connected network has internet access.',
+            AlertType.error);
+      },
+    );
     setState(() {
-      insertDoctors(database!);
+      insertDoctors(database);
+    });
+  }
+
+  Future<void> syncDoctorWithApi() async {
+    List<Doctor> doctors = await findDoctorByTagged(false).then(
+      (value) {
+        return value.map((e) => e).toList();
+      },
+    );
+    for (var element in doctors) {
+      final toJson = element.toJson();
+
+      checkConnectivity().then(
+        (value) {
+          if (value == ConnectivityResult.mobile ||
+              value == ConnectivityResult.wifi) {
+            DoctorApi.postDoctor(toJson).then(
+              (response) {
+                if (response.statusCode == 200 || response.statusCode == 201) {
+                  final mapData = json.decode(response.body);
+                  updateDoctor(database, Doctor.fromJson(mapData))
+                      .then((value) {
+                    if (value > 0) {
+                      const snackBar = SnackBar(
+                        content: Text('Doctor synced successfully'),
+                        duration: Duration(seconds: 2),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    }
+                  });
+                }
+              },
+            );
+          }
+        },
+      );
+    }
+  }
+
+  Future<ConnectivityResult> checkConnectivity() async {
+    final connectivityResult = Connectivity().checkConnectivity();
+    return await connectivityResult.then((value) {
+      return value;
     });
   }
 
   void checkConnectivityState(ConnectivityResult result) {
     if (result == ConnectivityResult.wifi ||
         result == ConnectivityResult.mobile) {
-      getDoctorsFromApi();
+      // getDoctorsFromApi();
       showConnectivitySnackBar(context, result);
     } else if (result == ConnectivityResult.none) {
       showConnectivitySnackBar(context, result);

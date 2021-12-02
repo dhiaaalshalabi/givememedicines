@@ -65,6 +65,8 @@ class _$AppDatabase extends AppDatabase {
 
   MedicineDao? _medicineDaoInstance;
 
+  SalesDao? _salesDaoInstance;
+
   Future<sqflite.Database> open(String path, List<Migration> migrations,
       [Callback? callback]) async {
     final databaseOptions = sqflite.OpenDatabaseOptions(
@@ -84,7 +86,7 @@ class _$AppDatabase extends AppDatabase {
       },
       onCreate: (database, version) async {
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `Doctor` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `syncedId` INTEGER NOT NULL, `firstName` TEXT NOT NULL, `lastName` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, `nameOfTheClinic` TEXT NOT NULL)');
+            'CREATE TABLE IF NOT EXISTS `Doctor` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `syncedId` INTEGER NOT NULL, `firstName` TEXT NOT NULL, `lastName` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, `specialization` TEXT NOT NULL, `clinicName` TEXT NOT NULL, `tagged` INTEGER)');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `Medicine` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `syncedId` INTEGER NOT NULL, `scientificName` TEXT NOT NULL, `tradeName` TEXT NOT NULL, `producingCompany` TEXT NOT NULL, `price` TEXT NOT NULL)');
         await database.execute(
@@ -107,6 +109,11 @@ class _$AppDatabase extends AppDatabase {
   MedicineDao get medicineDao {
     return _medicineDaoInstance ??= _$MedicineDao(database, changeListener);
   }
+
+  @override
+  SalesDao get salesDao {
+    return _salesDaoInstance ??= _$SalesDao(database, changeListener);
+  }
 }
 
 class _$DoctorDao extends DoctorDao {
@@ -122,7 +129,25 @@ class _$DoctorDao extends DoctorDao {
                   'lastName': item.lastName,
                   'address': item.address,
                   'phone': item.phone,
-                  'nameOfTheClinic': item.nameOfTheClinic
+                  'specialization': item.specialization,
+                  'clinicName': item.clinicName,
+                  'tagged': item.tagged == null ? null : (item.tagged! ? 1 : 0)
+                },
+            changeListener),
+        _doctorUpdateAdapter = UpdateAdapter(
+            database,
+            'Doctor',
+            ['id'],
+            (Doctor item) => <String, Object?>{
+                  'id': item.id,
+                  'syncedId': item.syncedId,
+                  'firstName': item.firstName,
+                  'lastName': item.lastName,
+                  'address': item.address,
+                  'phone': item.phone,
+                  'specialization': item.specialization,
+                  'clinicName': item.clinicName,
+                  'tagged': item.tagged == null ? null : (item.tagged! ? 1 : 0)
                 },
             changeListener);
 
@@ -134,31 +159,53 @@ class _$DoctorDao extends DoctorDao {
 
   final InsertionAdapter<Doctor> _doctorInsertionAdapter;
 
+  final UpdateAdapter<Doctor> _doctorUpdateAdapter;
+
   @override
   Future<List<Doctor>> findAllDoctor() async {
     return _queryAdapter.queryList('SELECT * FROM Doctor',
         mapper: (Map<String, Object?> row) => Doctor(
-            row['syncedId'] as int,
-            row['firstName'] as String,
-            row['lastName'] as String,
-            row['address'] as String,
-            row['phone'] as String,
-            row['nameOfTheClinic'] as String));
+            syncedId: row['syncedId'] as int,
+            firstName: row['firstName'] as String,
+            lastName: row['lastName'] as String,
+            address: row['address'] as String,
+            phone: row['phone'] as String,
+            specialization: row['specialization'] as String,
+            clinicName: row['clinicName'] as String,
+            tagged:
+                row['tagged'] == null ? null : (row['tagged'] as int) != 0));
   }
 
   @override
   Stream<Doctor?> findDoctorById(int id) {
     return _queryAdapter.queryStream('SELECT * FROM Doctor WHERE id = ?1',
         mapper: (Map<String, Object?> row) => Doctor(
-            row['syncedId'] as int,
-            row['firstName'] as String,
-            row['lastName'] as String,
-            row['address'] as String,
-            row['phone'] as String,
-            row['nameOfTheClinic'] as String),
+            syncedId: row['syncedId'] as int,
+            firstName: row['firstName'] as String,
+            lastName: row['lastName'] as String,
+            address: row['address'] as String,
+            phone: row['phone'] as String,
+            specialization: row['specialization'] as String,
+            clinicName: row['clinicName'] as String,
+            tagged: row['tagged'] == null ? null : (row['tagged'] as int) != 0),
         arguments: [id],
         queryableName: 'Doctor',
         isView: false);
+  }
+
+  @override
+  Future<List<Doctor>> findDoctorByTagged(bool tagged) async {
+    return _queryAdapter.queryList('SELECT * FROM Doctor WHERE tagged = ?1',
+        mapper: (Map<String, Object?> row) => Doctor(
+            syncedId: row['syncedId'] as int,
+            firstName: row['firstName'] as String,
+            lastName: row['lastName'] as String,
+            address: row['address'] as String,
+            phone: row['phone'] as String,
+            specialization: row['specialization'] as String,
+            clinicName: row['clinicName'] as String,
+            tagged: row['tagged'] == null ? null : (row['tagged'] as int) != 0),
+        arguments: [tagged ? 1 : 0]);
   }
 
   @override
@@ -171,6 +218,12 @@ class _$DoctorDao extends DoctorDao {
   Future<List<int>> insertDoctors(List<Doctor> doctors) {
     return _doctorInsertionAdapter.insertListAndReturnIds(
         doctors, OnConflictStrategy.abort);
+  }
+
+  @override
+  Future<int> updateDoctor(Doctor doctor) {
+    return _doctorUpdateAdapter.updateAndReturnChangedRows(
+        doctor, OnConflictStrategy.abort);
   }
 }
 
@@ -233,5 +286,61 @@ class _$MedicineDao extends MedicineDao {
   Future<List<int>> insertMedicines(List<Medicine> medicines) {
     return _medicineInsertionAdapter.insertListAndReturnIds(
         medicines, OnConflictStrategy.abort);
+  }
+}
+
+class _$SalesDao extends SalesDao {
+  _$SalesDao(this.database, this.changeListener)
+      : _queryAdapter = QueryAdapter(database, changeListener),
+        _salesInsertionAdapter = InsertionAdapter(
+            database,
+            'Sales',
+            (Sales item) => <String, Object?>{
+                  'id': item.id,
+                  'salesRepresentativeId': item.salesRepresentativeId,
+                  'doctorId': item.doctorId,
+                  'remark': item.remark,
+                  'date': item.date,
+                  'tagged': item.tagged
+                },
+            changeListener);
+
+  final sqflite.DatabaseExecutor database;
+
+  final StreamController<String> changeListener;
+
+  final QueryAdapter _queryAdapter;
+
+  final InsertionAdapter<Sales> _salesInsertionAdapter;
+
+  @override
+  Future<List<Sales>> findAllSales() async {
+    return _queryAdapter.queryList('SELECT * FROM Sales',
+        mapper: (Map<String, Object?> row) => Sales(
+            row['salesRepresentativeId'] as int,
+            row['doctorId'] as int,
+            row['remark'] as String,
+            row['date'] as String,
+            row['tagged'] as int));
+  }
+
+  @override
+  Stream<Sales?> findSalesById(int id) {
+    return _queryAdapter.queryStream('SELECT * FROM Sales WHERE id = ?1',
+        mapper: (Map<String, Object?> row) => Sales(
+            row['salesRepresentativeId'] as int,
+            row['doctorId'] as int,
+            row['remark'] as String,
+            row['date'] as String,
+            row['tagged'] as int),
+        arguments: [id],
+        queryableName: 'Sales',
+        isView: false);
+  }
+
+  @override
+  Future<int> insertSales(Sales sales) {
+    return _salesInsertionAdapter.insertAndReturnId(
+        sales, OnConflictStrategy.abort);
   }
 }

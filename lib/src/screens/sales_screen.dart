@@ -40,8 +40,12 @@ class _SalesScreenPage extends State<SalesScreenPage> {
   late AppDatabase database;
   late StreamSubscription subscription;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController _remark = TextEditingController();
+  final TextEditingController _doctor = TextEditingController();
   final TextEditingController _dateinput = TextEditingController();
+  final TextEditingController _remark = TextEditingController();
+  final TextEditingController _medicine = TextEditingController();
+  final TextEditingController _quantityType = TextEditingController();
+  final TextEditingController _quantity = TextEditingController();
   DateTime selectedDate = DateTime.now();
 
   @override
@@ -67,16 +71,17 @@ class _SalesScreenPage extends State<SalesScreenPage> {
   Widget _buildDoctor() {
     return Flexible(
       child: TextFormField(
+        controller: _doctor,
         decoration: const InputDecoration(
           border: OutlineInputBorder(),
           labelText: 'Doctor',
         ),
-        // validator: (value) {
-        //   if (value!.isEmpty) {
-        //     return 'Choose a date.';
-        //   }
-        //   return null;
-        // },
+        validator: (value) {
+          if (value!.isEmpty) {
+            return 'Choose a doctor.';
+          }
+          return null;
+        },
       ),
     );
   }
@@ -104,12 +109,12 @@ class _SalesScreenPage extends State<SalesScreenPage> {
             });
           }
         },
-        // validator: (value) {
-        //   if (value!.isEmpty) {
-        //     return 'Enter sales';
-        //   }
-        //   return null;
-        // },
+        validator: (value) {
+          if (value!.isEmpty) {
+            return 'Enter sales';
+          }
+          return null;
+        },
       ),
     );
   }
@@ -138,47 +143,50 @@ class _SalesScreenPage extends State<SalesScreenPage> {
         children: [
           Flexible(
             child: TextFormField(
+              controller: _medicine,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: 'Medicine',
               ),
-              // validator: (value) {
-              //   if (value!.isEmpty) {
-              //     return 'Choose a medicine.';
-              //   }
-              //   return null;
-              // },
+              validator: (value) {
+                if (value!.isEmpty) {
+                  return 'Choose a medicine.';
+                }
+                return null;
+              },
             ),
           ),
           const SizedBox(width: 10.0),
           Flexible(
             child: TextFormField(
+              controller: _quantityType,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: 'Quantity Type',
               ),
-              // validator: (value) {
-              //   if (value!.isEmpty) {
-              //     return 'Enter a quantity type.';
-              //   }
-              //   return null;
-              // },
+              validator: (value) {
+                if (value!.isEmpty) {
+                  return 'Enter a quantity type.';
+                }
+                return null;
+              },
             ),
           ),
           const SizedBox(width: 10.0),
           Flexible(
             child: TextFormField(
+              controller: _quantity,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: 'Quantiry',
               ),
               keyboardType: TextInputType.number,
-              // validator: (value) {
-              //   if (value!.isEmpty) {
-              //     return 'Enter a quantity.';
-              //   }
-              //   return null;
-              // },
+              validator: (value) {
+                if (value!.isEmpty) {
+                  return 'Enter a quantity.';
+                }
+                return null;
+              },
             ),
           ),
         ],

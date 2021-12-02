@@ -9,10 +9,20 @@ class Doctor {
   final String lastName;
   final String address;
   final String phone;
-  final String nameOfTheClinic;
+  final String specialization;
+  final String clinicName;
+  bool? tagged;
 
-  Doctor(this.syncedId, this.firstName, this.lastName, this.address, this.phone,
-      this.nameOfTheClinic);
+  Doctor({
+    required this.syncedId,
+    required this.firstName,
+    required this.lastName,
+    required this.address,
+    required this.phone,
+    required this.specialization,
+    required this.clinicName,
+    required this.tagged,
+  });
 
   Doctor.fromJson(Map json)
       : syncedId = json['id'],
@@ -20,16 +30,18 @@ class Doctor {
         lastName = json['last_name'],
         address = json['address'],
         phone = json['phone'],
-        nameOfTheClinic = json['name_of_the_clinic'];
+        specialization = json['specialization'],
+        clinicName = json['clinic_name'],
+        tagged = true;
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
-    data['synced_id'] = syncedId;
     data['first_name'] = firstName;
     data['last_name'] = lastName;
     data['address'] = address;
     data['phone'] = phone;
-    data['name_of_the_clinic'] = nameOfTheClinic;
+    data['specialization'] = specialization;
+    data['clinic_name'] = clinicName;
     return data;
   }
 }

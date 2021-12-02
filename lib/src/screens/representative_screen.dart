@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:givememedicineapp/data/medicine_api.dart';
 import 'package:givememedicineapp/database.dart';
 import 'package:givememedicineapp/entity/medicine.dart';
+import 'package:givememedicineapp/entity/sales.dart';
 import 'package:givememedicineapp/src/screens/sales_screen.dart';
 import 'package:givememedicineapp/utils.dart';
+import 'package:rflutter_alert/rflutter_alert.dart';
 
 class RepresentativeScreen extends StatelessWidget {
   const RepresentativeScreen({Key? key}) : super(key: key);
@@ -16,7 +18,7 @@ class RepresentativeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Operation'),
+        title: const Text('Add Sales'),
         actions: [
           IconButton(
             onPressed: () {
@@ -44,15 +46,19 @@ class RepresentativeScreenPage extends StatefulWidget {
 
 class _RepresentativeScreenPageState extends State<RepresentativeScreenPage> {
   late AppDatabase database;
-  List<Medicine> medicines = [];
+  List<Medicine>? medicines = [];
   late StreamSubscription subscription;
 
   Future<List<int>> insertMedicines(AppDatabase db) async {
-    return await db.medicineDao.insertMedicines(medicines);
+    return await db.medicineDao.insertMedicines(medicines!);
   }
 
   Future<List<Medicine>> findAllMedicine() async {
     return await database.medicineDao.findAllMedicine();
+  }
+
+  Future<List<Sales>> findAllSales() async {
+    return await database.salesDao.findAllSales();
   }
 
   Future<void> getMedicinesFromApi() async {
@@ -60,8 +66,22 @@ class _RepresentativeScreenPageState extends State<RepresentativeScreenPage> {
       return list.map((e) => e.syncedId).toList();
     });
     medicines = await MedicineApi.getMedicines(ids).then((response) {
-      Iterable list = json.decode(response.body);
-      return list.map((model) => Medicine.fromJson(model)).toList();
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Iterable list = json.decode(response.body);
+        return list.map((model) => Medicine.fromJson(model)).toList();
+      } else {
+        showRAlertDialog(
+            context,
+            'Error!!',
+            'Make sure that your connected network has an internet access.',
+            AlertType.error);
+      }
+    }).timeout(const Duration(seconds: 5), onTimeout: () {
+      showRAlertDialog(
+          context,
+          'Timeout!!',
+          'Make sure that your connected network has internet access.',
+          AlertType.error);
     });
     setState(() {
       insertMedicines(database);
@@ -99,7 +119,31 @@ class _RepresentativeScreenPageState extends State<RepresentativeScreenPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Text('data');
+    return FutureBuilder(
+        future: findAllSales(),
+        builder: (BuildContext context, AsyncSnapshot<List<Sales>> snapshot) {
+          if (snapshot.hasData) {
+            return snapshot.data!.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.tag_faces, size: 100, color: Colors.grey),
+                        SizedBox(height: 10),
+                        Text(
+                          'No sales found!',
+                          style: TextStyle(
+                            fontSize: 20.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Text('data');
+          } else {
+            return const Center(child: CircularProgressIndicator());
+          }
+        });
   }
 
   void checkConnectivityState(ConnectivityResult result) {

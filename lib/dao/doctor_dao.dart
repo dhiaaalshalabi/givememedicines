@@ -9,9 +9,15 @@ abstract class DoctorDao {
   @Query('SELECT * FROM Doctor WHERE id = :id')
   Stream<Doctor?> findDoctorById(int id);
 
+  @Query('SELECT * FROM Doctor WHERE tagged = :tagged')
+  Future<List<Doctor>> findDoctorByTagged(bool tagged);
+
   @insert
   Future<int> insertDoctor(Doctor doctor);
 
   @insert
   Future<List<int>> insertDoctors(List<Doctor> doctors);
+
+  @update
+  Future<int> updateDoctor(Doctor doctor);
 }

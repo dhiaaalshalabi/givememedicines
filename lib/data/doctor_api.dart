@@ -7,4 +7,9 @@ class DoctorApi {
     return http
         .get(Uri.parse('http://192.168.56.1:8000/api/doctors/?ids=$ids'));
   }
+
+  static Future postDoctor(body) {
+    return http.post(Uri.parse('http://192.168.56.1:8000/api/doctors/'),
+        body: body);
+  }
 }
