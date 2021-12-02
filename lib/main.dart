@@ -92,6 +92,7 @@ class _MainPageState extends State<MainPage> {
         labelText: 'Your Password',
       ),
       keyboardType: TextInputType.visiblePassword,
+      obscureText: true,
       validator: (value) {
         if (value!.isEmpty) {
           return 'Enter Your Password.';

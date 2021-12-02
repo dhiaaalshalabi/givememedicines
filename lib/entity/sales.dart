@@ -12,10 +12,15 @@ class Sales {
   final int doctorId;
   final String remark;
   final String date;
-  final int tagged;
+  bool tagged;
 
-  Sales(this.salesRepresentativeId, this.doctorId, this.remark, this.date,
-      this.tagged);
+  Sales(
+      {this.id,
+      required this.salesRepresentativeId,
+      required this.doctorId,
+      required this.remark,
+      required this.date,
+      required this.tagged});
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
@@ -36,11 +41,26 @@ class Sales {
 class SalesMedicine {
   @PrimaryKey(autoGenerate: true)
   int? id;
-  final int salesId;
+  int? salesId;
   final int medicineId;
   final String quantityType;
   final int quantity;
+  bool tagged;
 
   SalesMedicine(
-      this.salesId, this.medicineId, this.quantityType, this.quantity);
+      {required this.id,
+      this.salesId,
+      required this.medicineId,
+      required this.quantityType,
+      required this.quantity,
+      required this.tagged});
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['sales_representative'] = salesId;
+    data['doctor'] = medicineId;
+    data['remark'] = quantityType;
+    data['date'] = quantity;
+    return data;
+  }
 }

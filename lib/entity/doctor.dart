@@ -4,16 +4,17 @@ import 'package:floor/floor.dart';
 class Doctor {
   @PrimaryKey(autoGenerate: true)
   int? id;
-  final int syncedId;
+  int syncedId;
   final String firstName;
   final String lastName;
   final String address;
   final String phone;
   final String specialization;
   final String clinicName;
-  bool? tagged;
+  bool tagged;
 
   Doctor({
+    this.id,
     required this.syncedId,
     required this.firstName,
     required this.lastName,

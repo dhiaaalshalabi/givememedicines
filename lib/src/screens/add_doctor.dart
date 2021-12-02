@@ -246,6 +246,13 @@ class _AddDoctorPage extends State<AddDoctorPage> {
     );
   }
 
+  Future<ConnectivityResult> checkConnectivity() async {
+    final connectivityResult = Connectivity().checkConnectivity();
+    return await connectivityResult.then((value) {
+      return value;
+    });
+  }
+
   void checkConnectivityState(ConnectivityResult result) {
     if (result == ConnectivityResult.wifi ||
         result == ConnectivityResult.mobile) {
@@ -261,6 +268,7 @@ class _AddDoctorPage extends State<AddDoctorPage> {
 
   Future<void> syncDoctorData() async {
     final doctor = Doctor(
+      id: null,
       syncedId: 0,
       firstName: _firstName.text,
       lastName: _lastName.text,
@@ -271,8 +279,7 @@ class _AddDoctorPage extends State<AddDoctorPage> {
       tagged: false,
     );
     final toJson = doctor.toJson();
-    final connectivityResult = Connectivity().checkConnectivity();
-    connectivityResult.then((value) {
+    checkConnectivity().then((value) {
       if (value == ConnectivityResult.mobile ||
           value == ConnectivityResult.wifi) {
         DoctorApi.postDoctor(toJson).then((response) {
@@ -291,7 +298,6 @@ class _AddDoctorPage extends State<AddDoctorPage> {
                   'Doctor with these information already exists');
             }
           }
-          return null;
         }).timeout(const Duration(seconds: 5), onTimeout: () {
           showAlertDialog(context, 'Timeout!!',
               'Make sure that your connected network has internet access.');

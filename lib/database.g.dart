@@ -86,13 +86,13 @@ class _$AppDatabase extends AppDatabase {
       },
       onCreate: (database, version) async {
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `Doctor` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `syncedId` INTEGER NOT NULL, `firstName` TEXT NOT NULL, `lastName` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, `specialization` TEXT NOT NULL, `clinicName` TEXT NOT NULL, `tagged` INTEGER)');
+            'CREATE TABLE IF NOT EXISTS `Doctor` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `syncedId` INTEGER NOT NULL, `firstName` TEXT NOT NULL, `lastName` TEXT NOT NULL, `address` TEXT NOT NULL, `phone` TEXT NOT NULL, `specialization` TEXT NOT NULL, `clinicName` TEXT NOT NULL, `tagged` INTEGER NOT NULL)');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `Medicine` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `syncedId` INTEGER NOT NULL, `scientificName` TEXT NOT NULL, `tradeName` TEXT NOT NULL, `producingCompany` TEXT NOT NULL, `price` TEXT NOT NULL)');
         await database.execute(
             'CREATE TABLE IF NOT EXISTS `Sales` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `salesRepresentativeId` INTEGER NOT NULL, `doctorId` INTEGER NOT NULL, `remark` TEXT NOT NULL, `date` TEXT NOT NULL, `tagged` INTEGER NOT NULL, FOREIGN KEY (`doctorId`) REFERENCES `Doctor` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION)');
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `SalesMedicine` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `salesId` INTEGER NOT NULL, `medicineId` INTEGER NOT NULL, `quantityType` TEXT NOT NULL, `quantity` INTEGER NOT NULL, FOREIGN KEY (`salesId`) REFERENCES `Sales` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION, FOREIGN KEY (`medicineId`) REFERENCES `Medicine` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION)');
+            'CREATE TABLE IF NOT EXISTS `SalesMedicine` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `salesId` INTEGER, `medicineId` INTEGER NOT NULL, `quantityType` TEXT NOT NULL, `quantity` INTEGER NOT NULL, `tagged` INTEGER NOT NULL, FOREIGN KEY (`salesId`) REFERENCES `Sales` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION, FOREIGN KEY (`medicineId`) REFERENCES `Medicine` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION)');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -131,7 +131,7 @@ class _$DoctorDao extends DoctorDao {
                   'phone': item.phone,
                   'specialization': item.specialization,
                   'clinicName': item.clinicName,
-                  'tagged': item.tagged == null ? null : (item.tagged! ? 1 : 0)
+                  'tagged': item.tagged ? 1 : 0
                 },
             changeListener),
         _doctorUpdateAdapter = UpdateAdapter(
@@ -147,7 +147,7 @@ class _$DoctorDao extends DoctorDao {
                   'phone': item.phone,
                   'specialization': item.specialization,
                   'clinicName': item.clinicName,
-                  'tagged': item.tagged == null ? null : (item.tagged! ? 1 : 0)
+                  'tagged': item.tagged ? 1 : 0
                 },
             changeListener);
 
@@ -165,6 +165,7 @@ class _$DoctorDao extends DoctorDao {
   Future<List<Doctor>> findAllDoctor() async {
     return _queryAdapter.queryList('SELECT * FROM Doctor',
         mapper: (Map<String, Object?> row) => Doctor(
+            id: row['id'] as int?,
             syncedId: row['syncedId'] as int,
             firstName: row['firstName'] as String,
             lastName: row['lastName'] as String,
@@ -172,14 +173,14 @@ class _$DoctorDao extends DoctorDao {
             phone: row['phone'] as String,
             specialization: row['specialization'] as String,
             clinicName: row['clinicName'] as String,
-            tagged:
-                row['tagged'] == null ? null : (row['tagged'] as int) != 0));
+            tagged: (row['tagged'] as int) != 0));
   }
 
   @override
   Stream<Doctor?> findDoctorById(int id) {
     return _queryAdapter.queryStream('SELECT * FROM Doctor WHERE id = ?1',
         mapper: (Map<String, Object?> row) => Doctor(
+            id: row['id'] as int?,
             syncedId: row['syncedId'] as int,
             firstName: row['firstName'] as String,
             lastName: row['lastName'] as String,
@@ -187,7 +188,7 @@ class _$DoctorDao extends DoctorDao {
             phone: row['phone'] as String,
             specialization: row['specialization'] as String,
             clinicName: row['clinicName'] as String,
-            tagged: row['tagged'] == null ? null : (row['tagged'] as int) != 0),
+            tagged: (row['tagged'] as int) != 0),
         arguments: [id],
         queryableName: 'Doctor',
         isView: false);
@@ -197,6 +198,7 @@ class _$DoctorDao extends DoctorDao {
   Future<List<Doctor>> findDoctorByTagged(bool tagged) async {
     return _queryAdapter.queryList('SELECT * FROM Doctor WHERE tagged = ?1',
         mapper: (Map<String, Object?> row) => Doctor(
+            id: row['id'] as int?,
             syncedId: row['syncedId'] as int,
             firstName: row['firstName'] as String,
             lastName: row['lastName'] as String,
@@ -204,7 +206,7 @@ class _$DoctorDao extends DoctorDao {
             phone: row['phone'] as String,
             specialization: row['specialization'] as String,
             clinicName: row['clinicName'] as String,
-            tagged: row['tagged'] == null ? null : (row['tagged'] as int) != 0),
+            tagged: (row['tagged'] as int) != 0),
         arguments: [tagged ? 1 : 0]);
   }
 
@@ -301,9 +303,20 @@ class _$SalesDao extends SalesDao {
                   'doctorId': item.doctorId,
                   'remark': item.remark,
                   'date': item.date,
-                  'tagged': item.tagged
+                  'tagged': item.tagged ? 1 : 0
                 },
-            changeListener);
+            changeListener),
+        _salesMedicineInsertionAdapter = InsertionAdapter(
+            database,
+            'SalesMedicine',
+            (SalesMedicine item) => <String, Object?>{
+                  'id': item.id,
+                  'salesId': item.salesId,
+                  'medicineId': item.medicineId,
+                  'quantityType': item.quantityType,
+                  'quantity': item.quantity,
+                  'tagged': item.tagged ? 1 : 0
+                });
 
   final sqflite.DatabaseExecutor database;
 
@@ -313,26 +326,43 @@ class _$SalesDao extends SalesDao {
 
   final InsertionAdapter<Sales> _salesInsertionAdapter;
 
+  final InsertionAdapter<SalesMedicine> _salesMedicineInsertionAdapter;
+
   @override
   Future<List<Sales>> findAllSales() async {
     return _queryAdapter.queryList('SELECT * FROM Sales',
         mapper: (Map<String, Object?> row) => Sales(
-            row['salesRepresentativeId'] as int,
-            row['doctorId'] as int,
-            row['remark'] as String,
-            row['date'] as String,
-            row['tagged'] as int));
+            id: row['id'] as int?,
+            salesRepresentativeId: row['salesRepresentativeId'] as int,
+            doctorId: row['doctorId'] as int,
+            remark: row['remark'] as String,
+            date: row['date'] as String,
+            tagged: (row['tagged'] as int) != 0));
+  }
+
+  @override
+  Future<List<Sales>> findAllSalesByTagged(bool tagged) async {
+    return _queryAdapter.queryList('SELECT * FROM Sales WHERE tagged = ?1',
+        mapper: (Map<String, Object?> row) => Sales(
+            id: row['id'] as int?,
+            salesRepresentativeId: row['salesRepresentativeId'] as int,
+            doctorId: row['doctorId'] as int,
+            remark: row['remark'] as String,
+            date: row['date'] as String,
+            tagged: (row['tagged'] as int) != 0),
+        arguments: [tagged ? 1 : 0]);
   }
 
   @override
   Stream<Sales?> findSalesById(int id) {
     return _queryAdapter.queryStream('SELECT * FROM Sales WHERE id = ?1',
         mapper: (Map<String, Object?> row) => Sales(
-            row['salesRepresentativeId'] as int,
-            row['doctorId'] as int,
-            row['remark'] as String,
-            row['date'] as String,
-            row['tagged'] as int),
+            id: row['id'] as int?,
+            salesRepresentativeId: row['salesRepresentativeId'] as int,
+            doctorId: row['doctorId'] as int,
+            remark: row['remark'] as String,
+            date: row['date'] as String,
+            tagged: (row['tagged'] as int) != 0),
         arguments: [id],
         queryableName: 'Sales',
         isView: false);
@@ -342,5 +372,11 @@ class _$SalesDao extends SalesDao {
   Future<int> insertSales(Sales sales) {
     return _salesInsertionAdapter.insertAndReturnId(
         sales, OnConflictStrategy.abort);
+  }
+
+  @override
+  Future<List<int>> insertSalesMedicine(List<SalesMedicine> salesMedicine) {
+    return _salesMedicineInsertionAdapter.insertListAndReturnIds(
+        salesMedicine, OnConflictStrategy.abort);
   }
 }

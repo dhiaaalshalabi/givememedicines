@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:givememedicineapp/src/screens/doctor_screen.dart';
-import 'package:givememedicineapp/src/screens/representative_screen.dart';
+import 'package:givememedicineapp/src/screens/sales_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -16,7 +16,7 @@ class HomeScreen extends StatelessWidget {
       ),
       routes: {
         '/doctor': (context) => const DoctorScreen(),
-        '/representative': (context) => const RepresentativeScreen(),
+        '/representative': (context) => const SalesScreen(),
       },
     );
   }

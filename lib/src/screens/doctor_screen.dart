@@ -63,12 +63,12 @@ class _DoctorScreenPageState extends State<DoctorScreenPage> {
           syncDoctorWithApi();
           var connectivityResult = Connectivity().checkConnectivity();
           connectivityResult.then(
-            (value) => {
+            (value) {
               if (value == ConnectivityResult.mobile ||
-                  value == ConnectivityResult.wifi)
-                {
-                  // getDoctorsFromApi(),
-                }
+                  value == ConnectivityResult.wifi) {
+                getDoctorsFromApi();
+                syncDoctorWithApi();
+              }
             },
           );
         });
@@ -197,7 +197,6 @@ class _DoctorScreenPageState extends State<DoctorScreenPage> {
     );
     for (var element in doctors) {
       final toJson = element.toJson();
-
       checkConnectivity().then(
         (value) {
           if (value == ConnectivityResult.mobile ||
@@ -206,8 +205,9 @@ class _DoctorScreenPageState extends State<DoctorScreenPage> {
               (response) {
                 if (response.statusCode == 200 || response.statusCode == 201) {
                   final mapData = json.decode(response.body);
-                  updateDoctor(database, Doctor.fromJson(mapData))
-                      .then((value) {
+                  element.syncedId = mapData['id'];
+                  element.tagged = true;
+                  updateDoctor(database, element).then((value) {
                     if (value > 0) {
                       const snackBar = SnackBar(
                         content: Text('Doctor synced successfully'),
@@ -235,7 +235,8 @@ class _DoctorScreenPageState extends State<DoctorScreenPage> {
   void checkConnectivityState(ConnectivityResult result) {
     if (result == ConnectivityResult.wifi ||
         result == ConnectivityResult.mobile) {
-      // getDoctorsFromApi();
+      getDoctorsFromApi();
+      syncDoctorWithApi();
       showConnectivitySnackBar(context, result);
     } else if (result == ConnectivityResult.none) {
       showConnectivitySnackBar(context, result);
