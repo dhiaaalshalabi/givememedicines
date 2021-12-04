@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:givememedicineapp/data/medicine_api.dart';
+import 'package:givememedicineapp/data/sales_api.dart';
 import 'package:givememedicineapp/database.dart';
+import 'package:givememedicineapp/entity/doctor.dart';
 import 'package:givememedicineapp/entity/medicine.dart';
 import 'package:givememedicineapp/entity/sales.dart';
 import 'package:givememedicineapp/src/screens/add_sales_screen.dart';
@@ -56,6 +58,10 @@ class _SalesScreenPageState extends State<SalesScreenPage> {
     return await database.medicineDao.findAllMedicine();
   }
 
+  Stream<Doctor?> findDoctorById(int id) {
+    return database.doctorDao.findDoctorById(id);
+  }
+
   Future<List<Sales>> findAllSales() async {
     return await database.salesDao.findAllSales();
   }
@@ -101,7 +107,8 @@ class _SalesScreenPageState extends State<SalesScreenPage> {
               if (value == ConnectivityResult.mobile ||
                   value == ConnectivityResult.wifi)
                 {
-                  getMedicinesFromApi(),
+                  // getMedicinesFromApi(),
+                  syncSalesWithApi(),
                 }
             });
       });
@@ -147,7 +154,17 @@ class _SalesScreenPageState extends State<SalesScreenPage> {
                           title: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text("${snapshot.data![index].doctorId} "),
+                              StreamBuilder<Doctor?>(
+                                stream: findDoctorById(
+                                    snapshot.data![index].doctorId),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasData) {
+                                    return Text(
+                                        '${snapshot.data!.firstName} ${snapshot.data!.lastName}');
+                                  }
+                                  return const Text('');
+                                },
+                              ),
                               Text(
                                 snapshot.data![index].date,
                                 style: const TextStyle(
@@ -168,10 +185,61 @@ class _SalesScreenPageState extends State<SalesScreenPage> {
         });
   }
 
+  Future<List<Sales>> findAllSalesByTagged(bool tagged) async {
+    return await database.salesDao.findAllSalesByTagged(tagged);
+  }
+
+  Future<int> updateSale(AppDatabase db, Sales sales) async {
+    return await database.salesDao.updateSales(sales);
+  }
+
+  Future<void> syncSalesWithApi() async {
+    List<Sales> sales = await findAllSalesByTagged(false).then(
+      (value) {
+        return value.map((e) => e).toList();
+      },
+    );
+    for (var element in sales) {
+      final toJson = element.toJson();
+      checkConnectivity().then(
+        (value) {
+          if (value == ConnectivityResult.mobile ||
+              value == ConnectivityResult.wifi) {
+            SalesApi.postSale(toJson).then(
+              (response) {
+                print("rrrrrrrrrr ${response.body}");
+                if (response.statusCode == 200 || response.statusCode == 201) {
+                  final mapData = json.decode(response.body);
+                  element.tagged = true;
+                  updateSale(database, element).then((value) {
+                    if (value > 0) {
+                      const snackBar = SnackBar(
+                        content: Text('Sales synced successfully'),
+                        duration: Duration(seconds: 2),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    }
+                  });
+                }
+              },
+            );
+          }
+        },
+      );
+    }
+  }
+
+  Future<ConnectivityResult> checkConnectivity() async {
+    final connectivityResult = Connectivity().checkConnectivity();
+    return await connectivityResult.then((value) {
+      return value;
+    });
+  }
+
   void checkConnectivityState(ConnectivityResult result) {
     if (result == ConnectivityResult.wifi ||
         result == ConnectivityResult.mobile) {
-      getMedicinesFromApi();
+      // getMedicinesFromApi();
       showConnectivitySnackBar(context, result);
     } else if (result == ConnectivityResult.none) {
       showConnectivitySnackBar(context, result);

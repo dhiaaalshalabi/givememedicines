@@ -45,4 +45,9 @@ class Doctor {
     data['clinic_name'] = clinicName;
     return data;
   }
+
+  @override
+  String toString() {
+    return ' $firstName $lastName';
+  }
 }

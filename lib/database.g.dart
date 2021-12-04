@@ -316,7 +316,20 @@ class _$SalesDao extends SalesDao {
                   'quantityType': item.quantityType,
                   'quantity': item.quantity,
                   'tagged': item.tagged ? 1 : 0
-                });
+                }),
+        _salesUpdateAdapter = UpdateAdapter(
+            database,
+            'Sales',
+            ['id'],
+            (Sales item) => <String, Object?>{
+                  'id': item.id,
+                  'salesRepresentativeId': item.salesRepresentativeId,
+                  'doctorId': item.doctorId,
+                  'remark': item.remark,
+                  'date': item.date,
+                  'tagged': item.tagged ? 1 : 0
+                },
+            changeListener);
 
   final sqflite.DatabaseExecutor database;
 
@@ -327,6 +340,8 @@ class _$SalesDao extends SalesDao {
   final InsertionAdapter<Sales> _salesInsertionAdapter;
 
   final InsertionAdapter<SalesMedicine> _salesMedicineInsertionAdapter;
+
+  final UpdateAdapter<Sales> _salesUpdateAdapter;
 
   @override
   Future<List<Sales>> findAllSales() async {
@@ -375,8 +390,14 @@ class _$SalesDao extends SalesDao {
   }
 
   @override
-  Future<List<int>> insertSalesMedicine(List<SalesMedicine> salesMedicine) {
-    return _salesMedicineInsertionAdapter.insertListAndReturnIds(
+  Future<int> insertSalesMedicine(SalesMedicine salesMedicine) {
+    return _salesMedicineInsertionAdapter.insertAndReturnId(
         salesMedicine, OnConflictStrategy.abort);
+  }
+
+  @override
+  Future<int> updateSales(Sales sales) {
+    return _salesUpdateAdapter.updateAndReturnChangedRows(
+        sales, OnConflictStrategy.abort);
   }
 }

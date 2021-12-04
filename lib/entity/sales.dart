@@ -22,13 +22,19 @@ class Sales {
       required this.date,
       required this.tagged});
 
+  Sales.fromJson(Map json)
+      : salesRepresentativeId = json['sales_representative'],
+        doctorId = json['doctor'],
+        remark = json['remark'],
+        date = json['date'],
+        tagged = true;
+
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
-    data['sales_representative'] = salesRepresentativeId;
-    data['doctor'] = doctorId;
+    data['sales_representative'] = salesRepresentativeId.toString();
+    data['doctor'] = doctorId.toString();
     data['remark'] = remark;
     data['date'] = date;
-    data['tagged'] = tagged;
     return data;
   }
 }
@@ -54,6 +60,13 @@ class SalesMedicine {
       required this.quantityType,
       required this.quantity,
       required this.tagged});
+
+  SalesMedicine.fromJson(Map json)
+      : salesId = json['sales_action'],
+        medicineId = json['medicine'],
+        quantityType = json['quantity_type'],
+        quantity = json['quantity'],
+        tagged = true;
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};

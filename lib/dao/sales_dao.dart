@@ -15,6 +15,11 @@ abstract class SalesDao {
   @insert
   Future<int> insertSales(Sales sales);
 
+  @update
+  Future<int> updateSales(Sales sales);
+
   @insert
-  Future<List<int>> insertSalesMedicine(List<SalesMedicine> salesMedicine);
+  Future<int> insertSalesMedicine(SalesMedicine salesMedicine);
+
+
 }

@@ -1,8 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:givememedicineapp/data/sales_api.dart';
 import 'package:givememedicineapp/database.dart';
+import 'package:givememedicineapp/entity/doctor.dart';
+import 'package:givememedicineapp/entity/medicine.dart';
 import 'package:givememedicineapp/entity/sales.dart';
 import 'package:givememedicineapp/utils.dart';
 import 'package:intl/intl.dart';
@@ -40,6 +45,9 @@ class _AddSalesScreenPage extends State<AddSalesScreenPage> {
   final TextEditingController _quantityType = TextEditingController();
   final TextEditingController _quantity = TextEditingController();
   DateTime selectedDate = DateTime.now();
+  late List<Doctor> doctors;
+  int _selectedDoctor = 0;
+  int _selectedMedicine = 0;
 
   @override
   void initState() {
@@ -49,10 +57,19 @@ class _AddSalesScreenPage extends State<AddSalesScreenPage> {
         .build()
         .then((value) async {
       database = value;
+      setState(() {
+        database.doctorDao.findAllDoctor().then((value) {
+          doctors = value;
+        });
+      });
+      subscription =
+          Connectivity().onConnectivityChanged.listen(checkConnectivityState);
+      _dateInput.text = "";
     });
-    subscription =
-        Connectivity().onConnectivityChanged.listen(checkConnectivityState);
-    _dateInput.text = "";
+  }
+
+  Future<void> getDoctorsList() async {
+    doctors = await database.doctorDao.findAllDoctor();
   }
 
   @override
@@ -63,17 +80,35 @@ class _AddSalesScreenPage extends State<AddSalesScreenPage> {
 
   Widget _buildDoctor() {
     return Flexible(
-      child: TextFormField(
-        controller: _doctor,
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          labelText: 'Doctor',
+      child: TypeAheadFormField<Doctor>(
+        textFieldConfiguration: TextFieldConfiguration(
+          controller: _doctor,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            labelText: 'Doctor',
+          ),
         ),
+        suggestionsCallback: (pattern) {
+          return findAllDoctor();
+        },
+        itemBuilder: (context, suggestion) {
+          return ListTile(
+            title: Text('${suggestion.firstName} ${suggestion.lastName}'),
+          );
+        },
+        transitionBuilder: (context, suggestionsBox, controller) {
+          return suggestionsBox;
+        },
+        onSuggestionSelected: (suggestion) {
+          _doctor.text = '${suggestion.firstName} ${suggestion.lastName}';
+          setState(() {
+            _selectedDoctor = suggestion.syncedId;
+          });
+        },
         validator: (value) {
           if (value!.isEmpty) {
-            return 'Choose a doctor.';
+            return 'Please select a doctor';
           }
-          return null;
         },
       ),
     );
@@ -94,7 +129,6 @@ class _AddSalesScreenPage extends State<AddSalesScreenPage> {
               initialDate: DateTime.now(),
               firstDate: DateTime(2015, 8),
               lastDate: DateTime(2101));
-
           if (pickedDate != null) {
             String formattedDate = DateFormat('yyyy-MM-dd').format(pickedDate);
             setState(() {
@@ -135,17 +169,35 @@ class _AddSalesScreenPage extends State<AddSalesScreenPage> {
       Row(
         children: [
           Flexible(
-            child: TextFormField(
-              controller: _medicine,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Medicine',
+            child: TypeAheadFormField<Medicine>(
+              textFieldConfiguration: TextFieldConfiguration(
+                controller: _medicine,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'Medicine',
+                ),
               ),
+              suggestionsCallback: (pattern) {
+                return findAllMedicine();
+              },
+              itemBuilder: (context, suggestion) {
+                return ListTile(
+                  title: Text(suggestion.scientificName),
+                );
+              },
+              transitionBuilder: (context, suggestionsBox, controller) {
+                return suggestionsBox;
+              },
+              onSuggestionSelected: (suggestion) {
+                _medicine.text = suggestion.scientificName;
+                setState(() {
+                  _selectedMedicine = suggestion.syncedId;
+                });
+              },
               validator: (value) {
                 if (value!.isEmpty) {
-                  return 'Choose a medicine.';
+                  return 'Please select a medicine';
                 }
-                return null;
               },
             ),
           ),
@@ -265,7 +317,7 @@ class _AddSalesScreenPage extends State<AddSalesScreenPage> {
     final sale = Sales(
       id: null,
       salesRepresentativeId: representativeId,
-      doctorId: int.parse(_doctor.text),
+      doctorId: _selectedDoctor,
       remark: _remark.text,
       date: _dateInput.text,
       tagged: false,
@@ -273,25 +325,58 @@ class _AddSalesScreenPage extends State<AddSalesScreenPage> {
     final salesMedicine = SalesMedicine(
       id: null,
       salesId: null,
-      medicineId: int.parse(_medicine.text),
+      medicineId: _selectedMedicine,
       quantityType: _quantityType.text,
       quantity: int.parse(_quantity.text),
       tagged: false,
     );
-    List<SalesMedicine> salesMedicines = [];
-    salesMedicines.add(salesMedicine);
+
     final toJson = sale.toJson();
+    print(toJson);
     checkConnectivity().then((value) {
       if (value == ConnectivityResult.mobile ||
           value == ConnectivityResult.wifi) {
+        SalesApi.postSale(toJson).then((response) {
+          if (response.statusCode == 200 || response.statusCode == 201) {
+            final mapData = json.decode(response.body);
+            insertSale(database, Sales.fromJson(mapData)).then((value) {
+              if (value > 0) {
+                salesMedicine.salesId = value;
+                final medicineToJson = salesMedicine.toJson();
+                SalesApi.postSaleMedicine(medicineToJson).then((response) {
+                  if (response.statusCode == 200 ||
+                      response.statusCode == 201) {
+                    final mapData = json.decode(response.body);
+                    insertSaleMedicine(
+                            database, SalesMedicine.fromJson(mapData))
+                        .then((value) {
+                      if (value > 0) {
+                        insertSaleMedicine(database, salesMedicine);
+                        showAlertDialog(context, 'Success',
+                            'Sale information added successfully');
+                      }
+                    });
+                  }
+                });
+              }
+            });
+          } else {
+            final list = json.decode(response.body);
+            if (list['non_field_errors'] != null) {
+              showAlertDialog(context, 'Error!',
+                  'Doctor with these information already exists');
+            }
+          }
+        }).timeout(const Duration(seconds: 5), onTimeout: () {
+          showAlertDialog(context, 'Timeout!!',
+              'Make sure that your connected network has internet access.');
+        });
       } else {
         sale.tagged = false;
         insertSale(database, sale).then((value) {
           if (value > 0) {
-            for (var element in salesMedicines) {
-              element.salesId = value;
-            }
-            insertSaleMedicine(database, salesMedicines);
+            salesMedicine.salesId = value;
+            insertSaleMedicine(database, salesMedicine);
             showAlertDialog(
                 context, 'Success', 'Sale information added successfully');
           }
@@ -300,16 +385,24 @@ class _AddSalesScreenPage extends State<AddSalesScreenPage> {
     });
   }
 
-  Future<List<Sales>> findDoctorByTagged(bool tagged) async {
+  Future<List<Sales>> findAllSalesByTagged(bool tagged) async {
     return await database.salesDao.findAllSalesByTagged(tagged);
+  }
+
+  Future<List<Doctor>> findAllDoctor() async {
+    return await database.doctorDao.findAllDoctor();
+  }
+
+  Future<List<Medicine>> findAllMedicine() async {
+    return await database.medicineDao.findAllMedicine();
   }
 
   Future<int> insertSale(AppDatabase db, Sales sale) async {
     return await database.salesDao.insertSales(sale);
   }
 
-  Future<List<int>> insertSaleMedicine(
-      AppDatabase db, List<SalesMedicine> salesMedicines) async {
+  Future<int> insertSaleMedicine(
+      AppDatabase db, SalesMedicine salesMedicines) async {
     return await database.salesDao.insertSalesMedicine(salesMedicines);
   }
 

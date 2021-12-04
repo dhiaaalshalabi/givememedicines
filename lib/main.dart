@@ -50,7 +50,7 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  late StreamSubscription subscription;
+  late final StreamSubscription subscription;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _phone = TextEditingController();
   final TextEditingController _pass = TextEditingController();
